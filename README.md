@@ -1,6 +1,26 @@
 # IcePorge Cockpit Modules
 
-Web-based management interface for CAPE Sandbox and MWDB Stack, integrated into Cockpit.
+**Web-based Management Interface for CAPE Sandbox and MWDB Stack**
+
+Part of the [IcePorge](https://github.com/icepaule/IcePorge) Malware Analysis Stack.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+---
+
+## Screenshots
+
+### MWDB Stack Manager
+![MWDB Stack Manager](docs/screenshots/mwdb-manager.png)
+
+*Manage MWDB-core services, Karton pipeline, and container health from a single dashboard.*
+
+### CAPE Sandbox Manager
+![CAPE Sandbox Manager](docs/screenshots/cape-manager.png)
+
+*Monitor CAPE services, VMs, and view logs with integrated health checks for external services.*
+
+---
 
 ## Modules
 
