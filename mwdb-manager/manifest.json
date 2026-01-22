@@ -1,0 +1,16 @@
+{
+    "version": 0,
+    "name": "mwdb-manager",
+    "description": "MWDB + Karton + Feeder Manager",
+    "requires": {
+        "cockpit": "215"
+    },
+    "menu": {
+        "index": {
+            "label": "MWDB Stack",
+            "order": 16,
+            "icon": "mwdb-icon.svg"
+        }
+    },
+    "content-security-policy": "default-src 'self' 'unsafe-inline' 'unsafe-eval'"
+}

@@ -1,0 +1,15 @@
+{
+    "version": 0,
+    "name": "cape-manager",
+    "description": "CAPE Sandbox Manager",
+    "requires": {
+        "cockpit": "215"
+    },
+    "menu": {
+        "index": {
+            "label": "CAPE Sandbox",
+            "order": 15
+        }
+    },
+    "content-security-policy": "default-src 'self' 'unsafe-inline' 'unsafe-eval'"
+}

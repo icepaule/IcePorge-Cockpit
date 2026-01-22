@@ -1,0 +1,1479 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <title>CAPE Sandbox Manager</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="../base1/cockpit.js"></script>
+    <style>
+        body {
+            font-family: "RedHatText", "Open Sans", Helvetica, Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .cape-header {
+            background: linear-gradient(135deg, #1a5276 0%, #2980b9 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .cape-header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .cape-header .subtitle {
+            opacity: 0.8;
+            font-size: 14px;
+        }
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .status-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status-card h3 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 2px solid #2980b9;
+            padding-bottom: 10px;
+        }
+        .service-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .service-item:last-child {
+            border-bottom: none;
+        }
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-running {
+            background-color: #27ae60;
+            color: white;
+        }
+        .status-stopped {
+            background-color: #e74c3c;
+            color: white;
+        }
+        .status-warning {
+            background-color: #f39c12;
+            color: white;
+        }
+        .btn-group {
+            margin-top: 15px;
+        }
+        .btn {
+            margin: 2px;
+        }
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .alert-danger {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        #log-output {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .log-tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .log-tab {
+            padding: 8px 16px;
+            background: #34495e;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .log-tab:hover {
+            background: #2c3e50;
+        }
+        .log-tab.active {
+            background: #2980b9;
+        }
+        .log-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .log-controls label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .log-controls select {
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+        .upload-zone {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .upload-zone:hover {
+            border-color: #2980b9;
+            background: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <div id="alert-container"></div>
+
+    <div class="cape-header">
+        <h1>🦎 CAPE Sandbox Manager</h1>
+        <div class="subtitle">Malware Analysis System Control Panel</div>
+    </div>
+
+    <div class="btn-group">
+        <button class="btn btn-primary" onclick="refreshStatus()">🔄 Refresh</button>
+        <button class="btn btn-default" onclick="executeAction('start-all')">▶️ Start All</button>
+        <button class="btn btn-default" onclick="executeAction('stop-all')">⏹️ Stop All</button>
+        <button class="btn btn-default" onclick="executeAction('restart-all')">🔁 Restart All</button>
+        <button class="btn btn-default" onclick="executeAction('fix')">🔧 Auto-Fix</button>
+    </div>
+
+    <div class="status-grid">
+        <div class="status-card">
+            <h3>🔧 Core Services</h3>
+            <div id="core-services">Loading...</div>
+        </div>
+
+        <div class="status-card">
+            <h3>🦎 CAPE Services</h3>
+            <div id="cape-services">Loading...</div>
+        </div>
+
+        <div class="status-card">
+            <h3>💻 Analyse-VMs</h3>
+            <div id="vms">Loading...</div>
+        </div>
+
+        <div class="status-card">
+            <h3>🌐 Externe Services</h3>
+            <div class="service-item">
+                <span>MISP (10.10.0.204)</span>
+                <span class="status-badge" id="misp-status">...</span>
+            </div>
+        </div>
+
+        <div class="status-card">
+            <h3>🤖 Ghidra/Ollama (ki01)</h3>
+            <div class="service-item">
+                <span>Orchestrator</span>
+                <span class="status-badge" id="orchestrator-status">...</span>
+            </div>
+            <div class="service-item">
+                <span>Ghidra</span>
+                <span class="status-badge" id="ghidra-status">...</span>
+            </div>
+            <div class="service-item">
+                <span>Ollama</span>
+                <span class="status-badge" id="ollama-status">...</span>
+            </div>
+            <div class="service-item">
+                <span>Modell</span>
+                <span id="ollama-model">--</span>
+            </div>
+            <div class="service-item">
+                <span>Aktive Jobs</span>
+                <span id="ollama-jobs">--</span>
+            </div>
+            <div class="service-item">
+                <span>Analysierte Hashes</span>
+                <span id="ghidra-hashes">--</span>
+            </div>
+            <div style="border-top: 1px solid #eee; margin-top: 10px; padding-top: 10px;">
+                <div class="service-item">
+                    <span>🎮 GPU</span>
+                    <span id="ki01-gpu">--</span>
+                </div>
+                <div class="service-item">
+                    <span>GPU Auslastung</span>
+                    <span id="ki01-gpu-util">--%</span>
+                </div>
+                <div class="service-item">
+                    <span>GPU VRAM</span>
+                    <span id="ki01-gpu-mem">--</span>
+                </div>
+                <div class="service-item">
+                    <span>GPU Temp</span>
+                    <span id="ki01-gpu-temp">--°C</span>
+                </div>
+                <div class="service-item">
+                    <span>CPU / RAM</span>
+                    <span id="ki01-cpu-ram">--</span>
+                </div>
+                <div class="service-item">
+                    <span>Monitor Status</span>
+                    <span class="status-badge" id="ki01-monitor-status">...</span>
+                </div>
+                <div class="service-item">
+                    <span>Power</span>
+                    <span id="ki01-gpu-power">-- W</span>
+                </div>
+            </div>
+            <div id="ki01-alerts" style="margin-top: 10px; display: none;">
+                <div style="color: #e74c3c; font-size: 12px; padding: 5px; background: #fee; border-radius: 4px;">
+                    <strong>Alerts:</strong> <span id="ki01-alert-text"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-card">
+            <h3>📋 Letzte Ghidra Analysen</h3>
+            <div id="ki01-recent-tasks">Loading...</div>
+        </div>
+
+        <div class="status-card">
+            <h3>🔍 Ghidra Static AI Status</h3>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 10px;">
+                <div class="service-item" style="background:#1a3d1a; padding:5px; border-radius:4px; color:white; cursor:pointer;" onclick="showStatusDetails('done')" title="Klicken für Details">
+                    <span>✅ Erfolgreich</span>
+                    <span style="font-weight:bold; color:#90EE90;" id="static-done-count">--</span>
+                </div>
+                <div class="service-item" style="background:#3d1a1a; padding:5px; border-radius:4px; color:white; cursor:pointer;" onclick="showStatusDetails('error')" title="Klicken für Details">
+                    <span>❌ Fehler</span>
+                    <span style="font-weight:bold; color:#ff8080;" id="static-error-count">--</span>
+                </div>
+                <div class="service-item" style="background:#3d2a1a; padding:5px; border-radius:4px; color:white; cursor:pointer;" onclick="showStatusDetails('timeout')" title="Klicken für Details">
+                    <span>⏱️ Timeout</span>
+                    <span style="font-weight:bold; color:#ffcc80;" id="static-timeout-count">--</span>
+                </div>
+                <div class="service-item" style="background:#2a2a1a; padding:5px; border-radius:4px; color:white; cursor:pointer;" onclick="showStatusDetails('pending')" title="Klicken für Details">
+                    <span>⏳ Wartend</span>
+                    <span style="font-weight:bold; color:#ffdd80;" id="static-pending-count">--</span>
+                </div>
+            </div>
+            <div style="border-top: 1px solid #34495e; padding-top: 8px; margin-bottom: 5px;">
+                <small style="color:#7f8c8d;">Letzte 25 Analysen:</small>
+            </div>
+            <div id="static-analysis-list" style="max-height: 220px; overflow-y: auto; font-size: 12px;">
+                Loading...
+            </div>
+            <div class="btn-group" style="margin-top: 10px;">
+                <button class="btn btn-sm btn-default" onclick="refreshStaticAnalysis()">🔄 Refresh</button>
+                <button class="btn btn-sm btn-default" onclick="repairAllFailed()" title="Alle fehlerhaften Analysen neu starten">🔧 Alle reparieren</button>
+            </div>
+        </div>
+
+        <!-- Modal für Fehlerdetails -->
+        <div id="errorModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000;">
+            <div style="background:#2c3e50; margin:10% auto; padding:20px; width:60%; border-radius:8px; max-height:70%; overflow-y:auto;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3 style="margin:0;">🔴 Fehlerdetails Task <span id="errorTaskId"></span></h3>
+                    <button onclick="closeErrorModal()" style="background:none; border:none; color:white; font-size:24px; cursor:pointer;">&times;</button>
+                </div>
+                <pre id="errorContent" style="background:#1a252f; padding:15px; border-radius:5px; white-space:pre-wrap; font-size:12px;"></pre>
+                <div style="margin-top:15px; display:flex; gap:10px;">
+                    <button class="btn btn-sm btn-primary" onclick="reprocessTask()" id="reprocessBtn">🔄 Reprocessing starten</button>
+                    <button class="btn btn-sm btn-default" onclick="window.open('https://10.10.0.203/analysis/' + currentErrorTask + '/ghidra_static_report/', '_blank')">📄 Report öffnen</button>
+                    <button class="btn btn-sm btn-default" onclick="closeErrorModal()">Schließen</button>
+                </div>
+                <div id="reprocessStatus" style="margin-top:10px; display:none;"></div>
+            </div>
+        </div>
+
+        <!-- Modal für Status-Details -->
+        <div id="statusDetailModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000;">
+            <div style="background:#2c3e50; margin:5% auto; padding:20px; width:70%; border-radius:8px; max-height:80%; overflow-y:auto;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3 style="margin:0;" id="statusDetailTitle">Details</h3>
+                    <button onclick="closeStatusDetailModal()" style="background:none; border:none; color:white; font-size:24px; cursor:pointer;">&times;</button>
+                </div>
+                <div id="statusDetailInfo" style="margin-bottom:15px; padding:10px; background:#1a252f; border-radius:5px; font-size:13px;"></div>
+                <div id="statusDetailList" style="max-height:400px; overflow-y:auto;"></div>
+                <div style="margin-top:15px; display:flex; gap:10px;">
+                    <button class="btn btn-sm btn-primary" id="statusDetailActionBtn" style="display:none;">Aktion</button>
+                    <button class="btn btn-sm btn-default" onclick="closeStatusDetailModal()">Schließen</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-card">
+            <h3>📊 System Metriken</h3>
+            <div class="service-item">
+                <span>Disk Usage</span>
+                <span id="disk-usage">--%</span>
+            </div>
+            <div class="service-item">
+                <span>Pending Tasks</span>
+                <span id="pending-tasks">--</span>
+            </div>
+            <div class="service-item">
+                <span>Analysen (24h)</span>
+                <span id="analyses-24h">--</span>
+            </div>
+        </div>
+
+        <div class="status-card">
+            <h3>📧 cape-mailer</h3>
+            <div class="service-item">
+                <span>Timer</span>
+                <span class="status-badge" id="mailer-timer">...</span>
+            </div>
+            <div class="service-item">
+                <span>Service</span>
+                <span class="status-badge" id="mailer-service">...</span>
+            </div>
+            <div class="service-item">
+                <span>Letzter Lauf</span>
+                <span id="mailer-lastrun">--</span>
+            </div>
+            <div class="service-item">
+                <span>Letzte Fehler</span>
+                <span id="mailer-errors">--</span>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-sm btn-default" onclick="testMailer()">📧 Mailer Test</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="status-card">
+        <h3>🚀 Quick Submit</h3>
+        <div class="upload-zone" id="uploadZone">
+            <p>📁 Drag & Drop files oder Click to Browse</p>
+            <input type="file" id="fileInput" style="display: none;" multiple>
+        </div>
+        <div style="margin-top: 10px;">
+            <label><input type="checkbox" id="autoUnpack" checked> Auto-unpack archives</label>
+        </div>
+        <div id="uploadStatus" style="margin-top: 10px; display: none;">
+            <div style="background: #ecf0f1; height: 20px; border-radius: 4px; overflow: hidden;">
+                <div id="uploadProgress" style="background: #2980b9; height: 100%; width: 0%; transition: width 0.3s;"></div>
+            </div>
+            <p id="uploadMessage" style="margin-top: 5px; font-size: 12px;"></p>
+        </div>
+    </div>
+
+    <div class="status-card">
+        <h3>📜 Log Viewer</h3>
+        <div class="log-tabs">
+            <button class="log-tab active" onclick="switchLog('cape')">cape.log</button>
+            <button class="log-tab" onclick="switchLog('processor')">processor</button>
+            <button class="log-tab" onclick="switchLog('web')">web</button>
+            <button class="log-tab" onclick="switchLog('mailer')">mailer</button>
+            <button class="log-tab" onclick="switchLog('ki01-orch')">ki01 Orchestrator</button>
+            <button class="log-tab" onclick="switchLog('ki01-ollama')">ki01 Ollama</button>
+            <button class="log-tab" onclick="switchLog('action')">action</button>
+        </div>
+        <div class="log-controls">
+            <label>
+                Zeilen:
+                <select id="logLines" onchange="loadCurrentLog()">
+                    <option value="50">50</option>
+                    <option value="100" selected>100</option>
+                    <option value="200">200</option>
+                    <option value="500">500</option>
+                </select>
+            </label>
+            <label>
+                <input type="checkbox" id="autoRefreshLog" checked> Auto-Refresh (10s)
+            </label>
+            <button class="btn btn-sm btn-default" onclick="loadCurrentLog()">🔄 Refresh</button>
+            <button class="btn btn-sm btn-default" onclick="downloadCurrentLog()">📥 Download</button>
+        </div>
+        <div id="log-output">Wähle ein Log aus...</div>
+    </div>
+
+    <div style="text-align: center; margin-top: 20px; color: #7f8c8d; font-size: 12px;">
+        Letzte Aktualisierung: <span id="last-update">--</span>
+    </div>
+
+    <script>
+        (function() {
+            var cockpit = window.cockpit;
+            var CAPE_MANAGER = '/usr/local/bin/cape-manager';
+            var currentLog = 'cape';
+            var logRefreshInterval = null;
+            var logPaths = {
+                'cape': '/opt/CAPEv2/log/cuckoo.log',
+                'processor': '/opt/CAPEv2/log/process.log',
+                'web': '/var/log/cape/cape-web.log',
+                'mailer': 'journalctl', // Special: use journalctl
+                'action': 'action'
+            };
+
+            function showAlert(message, type) {
+                var alertHtml = '<div class="alert alert-' + type + '">' + message + '</div>';
+                document.getElementById('alert-container').innerHTML = alertHtml;
+                setTimeout(function() {
+                    document.getElementById('alert-container').innerHTML = '';
+                }, 5000);
+            }
+
+            function refreshStatus() {
+                updateServiceGroup(['mongodb', 'libvirtd', 'tor@default'], 'core-services');
+                updateServiceGroup(['cape-rooter', 'cape', 'cape-processor', 'cape-web'], 'cape-services');
+                updateVMs();
+                updateExternalServices();
+                updateGhidraOllama();
+                updateMetrics();
+                updateMailerStatus();
+                updateStaticAnalysis();
+
+                document.getElementById('last-update').textContent = new Date().toLocaleString('de-DE');
+            }
+
+            function updateServiceGroup(services, elementId) {
+                var promises = [];
+                
+                services.forEach(function(service) {
+                    var promise = cockpit.spawn(['systemctl', 'is-active', service])
+                        .then(function(result) {
+                            var status = result.trim();
+                            var badge = status === 'active' ? 'status-running' : 'status-stopped';
+                            var text = status === 'active' ? 'Running' : 'Stopped';
+                            return '<div class="service-item"><span>' + service + '</span><span class="status-badge ' + badge + '">' + text + '</span></div>';
+                        })
+                        .catch(function() {
+                            return '<div class="service-item"><span>' + service + '</span><span class="status-badge status-stopped">Stopped</span></div>';
+                        });
+                    promises.push(promise);
+                });
+                
+                Promise.all(promises).then(function(results) {
+                    document.getElementById(elementId).innerHTML = results.join('');
+                });
+            }
+
+            function updateVMs() {
+                // Versuche zuerst ohne superuser (wenn User in libvirt-Gruppe)
+                cockpit.spawn(['virsh', '-c', 'qemu:///system', 'list', '--all'])
+                    .then(parseVMResult)
+                    .catch(function() {
+                        // Fallback: mit superuser
+                        cockpit.spawn(['virsh', 'list', '--all'], { superuser: 'try' })
+                            .then(parseVMResult)
+                            .catch(function(err) {
+                                document.getElementById('vms').innerHTML = 'Fehler: ' + (err.message || err);
+                            });
+                    });
+            }
+
+            function parseVMResult(result) {
+                var lines = result.trim().split('\n');
+                var html = '';
+
+                for (var i = 0; i < lines.length; i++) {
+                    var line = lines[i];
+                    if (line.indexOf('win11-analysis') !== -1 && line.indexOf('master') === -1) {
+                        var parts = line.trim().split(/\s+/);
+                        var vmName = parts[1];
+                        var isRunning = line.indexOf('running') !== -1;
+                        var vmState = isRunning ? 'running' : 'shut off';
+                        var badge = isRunning ? 'status-running' : 'status-stopped';
+                        html += '<div class="service-item"><span>' + vmName + '</span><span class="status-badge ' + badge + '">' + vmState + '</span></div>';
+                    }
+                }
+
+                document.getElementById('vms').innerHTML = html || 'Keine VMs gefunden';
+            }
+
+            function updateExternalServices() {
+                // MISP with SSL -k flag
+                cockpit.spawn(['curl', '-k', '-s', '-o', '/dev/null', '-w', '%{http_code}', '--connect-timeout', '2', 'https://10.10.0.204'])
+                    .then(function(code) {
+                        var elem = document.getElementById('misp-status');
+                        var c = code.trim();
+                        if (c === '200' || c.startsWith('3')) {
+                            elem.textContent = 'Online';
+                            elem.className = 'status-badge status-running';
+                        } else {
+                            elem.textContent = 'Offline';
+                            elem.className = 'status-badge status-stopped';
+                        }
+                    })
+                    .catch(function() {
+                        var elem = document.getElementById('misp-status');
+                        elem.textContent = 'Offline';
+                        elem.className = 'status-badge status-stopped';
+                    });
+            }
+
+            function updateGhidraOllama() {
+                // Ghidra Orchestrator Health Check
+                cockpit.spawn(['curl', '-s', '--connect-timeout', '3', 'http://10.10.0.219:5001/health'])
+                    .then(function(result) {
+                        try {
+                            var data = JSON.parse(result);
+
+                            // Orchestrator Status
+                            var orchElem = document.getElementById('orchestrator-status');
+                            if (data.status === 'healthy') {
+                                orchElem.textContent = 'Healthy';
+                                orchElem.className = 'status-badge status-running';
+                            } else {
+                                orchElem.textContent = data.status || 'Unknown';
+                                orchElem.className = 'status-badge status-warning';
+                            }
+
+                            // Ghidra Status
+                            var ghidraElem = document.getElementById('ghidra-status');
+                            if (data.ghidra_available) {
+                                ghidraElem.textContent = 'Available';
+                                ghidraElem.className = 'status-badge status-running';
+                            } else {
+                                ghidraElem.textContent = 'Unavailable';
+                                ghidraElem.className = 'status-badge status-stopped';
+                            }
+
+                            // Hash Count
+                            document.getElementById('ghidra-hashes').textContent = data.hash_count || '0';
+
+                        } catch (e) {
+                            setGhidraOffline();
+                        }
+                    })
+                    .catch(function() {
+                        setGhidraOffline();
+                    });
+
+                // Ollama Models
+                cockpit.spawn(['curl', '-s', '--connect-timeout', '3', 'http://10.10.0.219:11434/api/tags'])
+                    .then(function(result) {
+                        try {
+                            var data = JSON.parse(result);
+                            var ollamaElem = document.getElementById('ollama-status');
+                            ollamaElem.textContent = 'Online';
+                            ollamaElem.className = 'status-badge status-running';
+
+                            // Modell anzeigen
+                            if (data.models && data.models.length > 0) {
+                                var model = data.models[0];
+                                var modelName = model.name || 'Unknown';
+                                var size = model.details ? model.details.parameter_size : '';
+                                document.getElementById('ollama-model').textContent = modelName + (size ? ' (' + size + ')' : '');
+                            } else {
+                                document.getElementById('ollama-model').textContent = 'Kein Modell';
+                            }
+                        } catch (e) {
+                            setOllamaOffline();
+                        }
+                    })
+                    .catch(function() {
+                        setOllamaOffline();
+                    });
+
+                // Ollama aktive Jobs
+                cockpit.spawn(['curl', '-s', '--connect-timeout', '3', 'http://10.10.0.219:11434/api/ps'])
+                    .then(function(result) {
+                        try {
+                            var data = JSON.parse(result);
+                            var jobCount = data.models ? data.models.length : 0;
+                            var jobElem = document.getElementById('ollama-jobs');
+                            jobElem.textContent = jobCount;
+                            jobElem.style.color = jobCount > 0 ? '#27ae60' : '#7f8c8d';
+                        } catch (e) {
+                            document.getElementById('ollama-jobs').textContent = '--';
+                        }
+                    })
+                    .catch(function() {
+                        document.getElementById('ollama-jobs').textContent = '--';
+                    });
+
+                // System-Metriken von ki01 (GPU, CPU, RAM)
+                cockpit.spawn(['curl', '-s', '--connect-timeout', '3', 'http://10.10.0.219:5001/system'])
+                    .then(function(result) {
+                        try {
+                            var data = JSON.parse(result);
+
+                            // GPU Info
+                            if (data.gpu && data.gpu.name) {
+                                document.getElementById('ki01-gpu').textContent = data.gpu.name;
+                                document.getElementById('ki01-gpu-util').textContent = data.gpu.utilization + '%';
+                                document.getElementById('ki01-gpu-mem').textContent = data.gpu.memory_used + ' / ' + data.gpu.memory_total;
+                                document.getElementById('ki01-gpu-temp').textContent = data.gpu.temperature + '°C';
+
+                                // Farbe basierend auf Temperatur
+                                var tempElem = document.getElementById('ki01-gpu-temp');
+                                var temp = parseInt(data.gpu.temperature);
+                                if (temp > 80) {
+                                    tempElem.style.color = '#e74c3c';
+                                } else if (temp > 65) {
+                                    tempElem.style.color = '#f39c12';
+                                } else {
+                                    tempElem.style.color = '#27ae60';
+                                }
+                            } else {
+                                setKi01SystemOffline();
+                            }
+
+                            // CPU / RAM
+                            var cpuPercent = data.cpu_percent !== undefined ? data.cpu_percent : (data.cpu ? data.cpu.percent : '--');
+                            var memPercent = data.memory ? data.memory.percent : '--';
+                            document.getElementById('ki01-cpu-ram').textContent = cpuPercent + '% / ' + memPercent + '%';
+
+                            // Power
+                            if (data.gpu && data.gpu.power_draw !== undefined) {
+                                document.getElementById('ki01-gpu-power').textContent = Math.round(data.gpu.power_draw) + ' / ' + Math.round(data.gpu.power_limit) + ' W';
+                            }
+                        } catch (e) {
+                            setKi01SystemOffline();
+                        }
+                    })
+                    .catch(function() {
+                        setKi01SystemOffline();
+                    });
+
+                // GPU Monitor Metrics
+                cockpit.spawn(['curl', '-s', '--connect-timeout', '3', 'http://10.10.0.219:5001/monitor/metrics'])
+                    .then(function(result) {
+                        try {
+                            var data = JSON.parse(result);
+                            var statusElem = document.getElementById('ki01-monitor-status');
+                            var alertsDiv = document.getElementById('ki01-alerts');
+
+                            if (data.status === 'healthy') {
+                                statusElem.textContent = 'Healthy';
+                                statusElem.className = 'status-badge status-running';
+                                alertsDiv.style.display = 'none';
+                            } else if (data.status === 'warning') {
+                                statusElem.textContent = 'Warning';
+                                statusElem.className = 'status-badge status-warning';
+                            } else if (data.status === 'critical') {
+                                statusElem.textContent = 'Critical';
+                                statusElem.className = 'status-badge status-stopped';
+                            }
+
+                            // Show alerts if any
+                            if (data.alerts && data.alerts.length > 0) {
+                                var alertText = data.alerts.map(function(a) { return a.message; }).join(', ');
+                                document.getElementById('ki01-alert-text').textContent = alertText;
+                                alertsDiv.style.display = 'block';
+                            } else {
+                                alertsDiv.style.display = 'none';
+                            }
+                        } catch (e) {
+                            document.getElementById('ki01-monitor-status').textContent = '--';
+                        }
+                    })
+                    .catch(function() {
+                        document.getElementById('ki01-monitor-status').textContent = '--';
+                    });
+
+                // Letzte Ghidra Analysen
+                cockpit.spawn(['curl', '-s', '--connect-timeout', '3', 'http://10.10.0.219:5001/tasks/recent'])
+                    .then(function(result) {
+                        try {
+                            var data = JSON.parse(result);
+                            var tasks = data.tasks || [];
+                            var html = '';
+
+                            if (tasks.length === 0) {
+                                html = '<div style="color: #7f8c8d; text-align: center;">Keine Analysen</div>';
+                            } else {
+                                tasks.slice(0, 10).forEach(function(task) {
+                                    var statusBadge = 'status-warning';
+                                    var statusText = 'pending';
+
+                                    if (task.has_results) {
+                                        statusBadge = 'status-running';
+                                        statusText = 'completed';
+                                    }
+
+                                    var taskId = task.task_id || '--';
+                                    var findings = task.findings_count || 0;
+                                    var timeStr = task.timestamp ? new Date(task.timestamp).toLocaleString('de-DE') : '--';
+
+                                    html += '<div class="service-item">';
+                                    html += '<span title="' + timeStr + '">' + taskId + ' (' + findings + ' findings)</span>';
+                                    html += '<span class="status-badge ' + statusBadge + '">' + statusText + '</span>';
+                                    html += '</div>';
+                                });
+                            }
+
+                            document.getElementById('ki01-recent-tasks').innerHTML = html;
+                        } catch (e) {
+                            document.getElementById('ki01-recent-tasks').innerHTML = '<div style="color: #e74c3c;">Fehler beim Laden</div>';
+                        }
+                    })
+                    .catch(function() {
+                        document.getElementById('ki01-recent-tasks').innerHTML = '<div style="color: #7f8c8d;">Nicht erreichbar</div>';
+                    });
+            }
+
+            function setKi01SystemOffline() {
+                document.getElementById('ki01-gpu').textContent = '--';
+                document.getElementById('ki01-gpu-util').textContent = '--%';
+                document.getElementById('ki01-gpu-mem').textContent = '--';
+                document.getElementById('ki01-gpu-temp').textContent = '--°C';
+                document.getElementById('ki01-cpu-ram').textContent = '--';
+                document.getElementById('ki01-gpu-power').textContent = '-- W';
+                document.getElementById('ki01-monitor-status').textContent = '--';
+                document.getElementById('ki01-monitor-status').className = 'status-badge';
+            }
+
+            function setGhidraOffline() {
+                var orchElem = document.getElementById('orchestrator-status');
+                orchElem.textContent = 'Offline';
+                orchElem.className = 'status-badge status-stopped';
+
+                var ghidraElem = document.getElementById('ghidra-status');
+                ghidraElem.textContent = 'Offline';
+                ghidraElem.className = 'status-badge status-stopped';
+
+                document.getElementById('ghidra-hashes').textContent = '--';
+            }
+
+            function setOllamaOffline() {
+                var ollamaElem = document.getElementById('ollama-status');
+                ollamaElem.textContent = 'Offline';
+                ollamaElem.className = 'status-badge status-stopped';
+                document.getElementById('ollama-model').textContent = '--';
+            }
+
+            function updateMetrics() {
+                cockpit.spawn(['bash', '-c', "df -h /mnt/cape-data | tail -1 | awk '{print $5}'"])
+                    .then(function(result) {
+                        document.getElementById('disk-usage').textContent = result.trim();
+                    });
+                
+                cockpit.spawn(['sudo', '-u', 'postgres', 'python3', '/opt/CAPEv2/utils/cockpit_api.py', 'stats'])
+                    .then(function(result) {
+                        var data = JSON.parse(result);
+                        document.getElementById('pending-tasks').textContent = data.running || '0';
+                        document.getElementById('analyses-24h').textContent = data.completed_24h || '0';
+                    });
+            }
+
+            function updateMailerStatus() {
+                cockpit.spawn(['systemctl', 'is-active', 'cape-mailer.timer'])
+                    .then(function(result) {
+                        var elem = document.getElementById('mailer-timer');
+                        var status = result.trim();
+                        elem.textContent = status === 'active' ? 'Active' : 'Inactive';
+                        elem.className = 'status-badge ' + (status === 'active' ? 'status-running' : 'status-stopped');
+                    });
+
+                cockpit.spawn(['systemctl', 'is-active', 'cape-mailer.service'])
+                    .then(function(result) {
+                        var elem = document.getElementById('mailer-service');
+                        var status = result.trim();
+                        elem.textContent = status === 'active' ? 'Running' : 'Idle';
+                        elem.className = 'status-badge ' + (status === 'active' ? 'status-running' : 'status-stopped');
+                    });
+
+                cockpit.spawn(['journalctl', '-u', 'cape-mailer.service', '-n', '1', '--no-pager', '-o', 'short-iso'])
+                    .then(function(result) {
+                        var match = result.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/);
+                        document.getElementById('mailer-lastrun').textContent = match ? match[1].replace('T', ' ').substring(0, 19) : '--';
+                    });
+
+                cockpit.spawn(['bash', '-c', 'journalctl -u cape-mailer.service -n 50 --no-pager | grep -c ERROR || echo 0'])
+                    .then(function(result) {
+                        var errCount = parseInt(result.trim()) || 0;
+                        var elem = document.getElementById('mailer-errors');
+                        elem.textContent = errCount;
+                        elem.style.color = errCount > 0 ? '#e74c3c' : '#27ae60';
+                    });
+            }
+
+            function refreshStaticAnalysis() {
+                updateStaticAnalysis();
+            }
+
+            var currentErrorTask = null;
+            var currentErrorType = null;
+            var staticTasksByStatus = { done: [], error: [], timeout: [], pending: [] };
+
+            function updateStaticAnalysis() {
+                // First get total counts
+                var countScript = 'cd /mnt/cape-data/ghidra/static-reports 2>/dev/null && ' +
+                    'done=0; error=0; timeout=0; pending=0; ' +
+                    'for d in */; do ' +
+                    '  if [ -f "$d/.done" ] && [ -s "$d/report.md" ]; then done=$((done+1)); ' +
+                    '  elif [ -f "$d/task_error.log" ] && [ -s "$d/task_error.log" ]; then error=$((error+1)); ' +
+                    '  elif [ -f "$d/.done" ]; then timeout=$((timeout+1)); ' +
+                    '  else pending=$((pending+1)); fi; ' +
+                    'done; ' +
+                    'echo "$done:$error:$timeout:$pending"';
+
+                cockpit.spawn(['bash', '-c', countScript])
+                    .then(function(countResult) {
+                        var counts = countResult.trim().split(':');
+                        document.getElementById('static-done-count').textContent = counts[0] || '0';
+                        document.getElementById('static-error-count').textContent = counts[1] || '0';
+                        document.getElementById('static-timeout-count').textContent = counts[2] || '0';
+                        document.getElementById('static-pending-count').textContent = counts[3] || '0';
+                    });
+
+                // Get ALL tasks and categorize them
+                var listScript = 'cd /mnt/cape-data/ghidra/static-reports 2>/dev/null && ' +
+                    'for d in */; do ' +
+                    '  taskid=${d%/}; ' +
+                    '  if [ -f "$d/.done" ] && [ -s "$d/report.md" ]; then echo "$taskid:done"; ' +
+                    '  elif [ -f "$d/task_error.log" ] && [ -s "$d/task_error.log" ]; then echo "$taskid:error"; ' +
+                    '  elif [ -f "$d/.done" ]; then echo "$taskid:timeout"; ' +
+                    '  else echo "$taskid:pending"; fi; ' +
+                    'done | sort -t: -k1 -rn';
+
+                cockpit.spawn(['bash', '-c', listScript])
+                    .then(function(result) {
+                        var lines = result.trim().split('\n').filter(function(l) { return l.length > 0 && l.indexOf(':') > 0; });
+
+                        // Reset and populate task lists by status
+                        staticTasksByStatus = { done: [], error: [], timeout: [], pending: [] };
+                        lines.forEach(function(line) {
+                            var parts = line.split(':');
+                            var taskId = parts[0];
+                            var status = parts[1];
+                            if (staticTasksByStatus[status]) {
+                                staticTasksByStatus[status].push(taskId);
+                            }
+                        });
+
+                        // Display only last 25 for the overview
+                        var displayLines = lines.slice(0, 25);
+                        var html = '';
+
+                        displayLines.forEach(function(line) {
+                            var parts = line.split(':');
+                            var taskId = parts[0];
+                            var status = parts[1];
+
+                            var statusIcon, statusColor, statusLabel;
+                            switch(status) {
+                                case 'done':
+                                    statusIcon = '✅'; statusColor = '#27ae60'; statusLabel = 'OK';
+                                    break;
+                                case 'error':
+                                    statusIcon = '❌'; statusColor = '#e74c3c'; statusLabel = 'Fehler';
+                                    break;
+                                case 'timeout':
+                                    statusIcon = '⏱️'; statusColor = '#e67e22'; statusLabel = 'Timeout';
+                                    break;
+                                default:
+                                    statusIcon = '⏳'; statusColor = '#f39c12'; statusLabel = 'Wartend';
+                            }
+
+                            html += '<div class="service-item" style="padding: 3px 0; display:flex; align-items:center; gap:6px; font-size:12px;">';
+                            html += '<span style="color:' + statusColor + '; min-width:20px;">' + statusIcon + '</span>';
+                            html += '<span style="font-family: monospace; flex:1;">' + taskId + '</span>';
+                            html += '<a href="https://10.10.0.203/analysis/' + taskId + '/" target="_blank" style="color: #2980b9; font-size:10px;">CAPE</a> ';
+
+                            if (status === 'error' || status === 'timeout') {
+                                html += '<button onclick="showErrorDetails(\'' + taskId + '\', \'' + status + '\')" style="background:' + statusColor + '; color:white; border:none; padding:1px 5px; border-radius:3px; cursor:pointer; font-size:10px;">Fix</button>';
+                            } else if (status === 'done') {
+                                html += '<a href="https://10.10.0.203/analysis/' + taskId + '/ghidra_static_report/" target="_blank" style="color:#27ae60; font-size:10px;">Report</a>';
+                            }
+                            html += '</div>';
+                        });
+
+                        if (displayLines.length === 0) {
+                            html = '<div style="color: #7f8c8d;">Keine Analysen gefunden</div>';
+                        }
+
+                        document.getElementById('static-analysis-list').innerHTML = html;
+                    })
+                    .catch(function(err) {
+                        document.getElementById('static-analysis-list').innerHTML = '<div style="color: #e74c3c;">Fehler: ' + err + '</div>';
+                    });
+            }
+
+            function showErrorDetails(taskId, errorType) {
+                currentErrorTask = taskId;
+                currentErrorType = errorType || 'error';
+                document.getElementById('errorTaskId').textContent = taskId;
+                document.getElementById('reprocessStatus').style.display = 'none';
+                document.getElementById('reprocessBtn').disabled = false;
+
+                var errorFile = '/mnt/cape-data/ghidra/static-reports/' + taskId + '/task_error.log';
+
+                cockpit.spawn(['bash', '-c', 'cat "' + errorFile + '" 2>/dev/null || echo "Kein Fehlerlog vorhanden"'])
+                    .then(function(result) {
+                        var content = result.trim();
+                        if (currentErrorType === 'timeout' && (!content || content === 'Kein Fehlerlog vorhanden')) {
+                            content = 'LLM-Analyse Timeout: Die Ollama-Anfrage hat das Zeitlimit überschritten.\n\nDie Ghidra-Dekompilierung war erfolgreich, aber die KI-Analyse konnte nicht abgeschlossen werden.\n\nMögliche Ursachen:\n- Zu große Kontextdaten\n- GPU-Überlastung\n- Netzwerkprobleme zu ki01';
+                        }
+                        document.getElementById('errorContent').textContent = content;
+                        document.getElementById('errorModal').style.display = 'block';
+                    })
+                    .catch(function() {
+                        document.getElementById('errorContent').textContent = 'Fehlerlog konnte nicht gelesen werden';
+                        document.getElementById('errorModal').style.display = 'block';
+                    });
+            }
+
+            function closeErrorModal() {
+                document.getElementById('errorModal').style.display = 'none';
+                currentErrorTask = null;
+            }
+
+            window.showStatusDetails = function(status) {
+                var tasks = staticTasksByStatus[status] || [];
+                var titles = {
+                    done: '✅ Erfolgreich abgeschlossene Analysen',
+                    error: '❌ Fehlerhafte Analysen',
+                    timeout: '⏱️ Timeout-Analysen',
+                    pending: '⏳ Wartende Analysen'
+                };
+                var infos = {
+                    done: 'Diese Analysen wurden erfolgreich abgeschlossen. Klicken Sie auf "Report" um das Ergebnis anzusehen.',
+                    error: 'Diese Analysen sind fehlgeschlagen. Klicken Sie auf "Fix" um die Analyse neu zu starten.',
+                    timeout: 'Diese Analysen haben das Zeitlimit überschritten. Die Ghidra-Dekompilierung war meist erfolgreich, aber die LLM-Analyse nicht. Klicken Sie auf "Fix" für einen neuen Versuch.',
+                    pending: 'Diese Analysen warten noch auf Verarbeitung. Sie wurden entweder noch nicht gestartet oder laufen gerade auf ki01.'
+                };
+                var colors = {
+                    done: '#27ae60',
+                    error: '#e74c3c',
+                    timeout: '#e67e22',
+                    pending: '#f39c12'
+                };
+
+                document.getElementById('statusDetailTitle').innerHTML = titles[status] + ' <span style="color:' + colors[status] + ';">(' + tasks.length + ')</span>';
+                document.getElementById('statusDetailInfo').innerHTML = '<span style="color:#bdc3c7;">' + infos[status] + '</span>';
+
+                var html = '<div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap:8px;">';
+
+                if (tasks.length === 0) {
+                    html = '<div style="color:#7f8c8d; text-align:center; padding:20px;">Keine Analysen in dieser Kategorie</div>';
+                } else {
+                    tasks.forEach(function(taskId) {
+                        html += '<div style="background:#1a252f; padding:8px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;">';
+                        html += '<span style="font-family:monospace; color:white;">' + taskId + '</span>';
+                        html += '<span style="display:flex; gap:4px;">';
+                        html += '<a href="https://10.10.0.203/analysis/' + taskId + '/" target="_blank" style="color:#3498db; font-size:11px; text-decoration:none;">CAPE</a>';
+
+                        if (status === 'done') {
+                            html += '<a href="https://10.10.0.203/analysis/' + taskId + '/ghidra_static_report/" target="_blank" style="color:#27ae60; font-size:11px; text-decoration:none;">Report</a>';
+                        } else if (status === 'error' || status === 'timeout') {
+                            html += '<button onclick="closeStatusDetailModal(); showErrorDetails(\'' + taskId + '\', \'' + status + '\')" style="background:' + colors[status] + '; color:white; border:none; padding:2px 6px; border-radius:3px; cursor:pointer; font-size:10px;">Fix</button>';
+                        }
+                        html += '</span></div>';
+                    });
+                    html += '</div>';
+                }
+
+                document.getElementById('statusDetailList').innerHTML = html;
+
+                // Show action button for bulk operations
+                var actionBtn = document.getElementById('statusDetailActionBtn');
+                if (status === 'error' || status === 'timeout') {
+                    actionBtn.textContent = '🔧 Alle ' + tasks.length + ' reparieren';
+                    actionBtn.onclick = function() { closeStatusDetailModal(); repairAllFailed(); };
+                    actionBtn.style.display = 'inline-block';
+                } else {
+                    actionBtn.style.display = 'none';
+                }
+
+                document.getElementById('statusDetailModal').style.display = 'block';
+            };
+
+            window.closeStatusDetailModal = function() {
+                document.getElementById('statusDetailModal').style.display = 'none';
+            };
+
+            function reprocessTask() {
+                if (!currentErrorTask) return;
+
+                var taskId = currentErrorTask;
+                var statusDiv = document.getElementById('reprocessStatus');
+                var btn = document.getElementById('reprocessBtn');
+
+                btn.disabled = true;
+                statusDiv.innerHTML = '<span style="color:#f39c12;">⏳ Starte Reprocessing für Task ' + taskId + '...</span>';
+                statusDiv.style.display = 'block';
+
+                // Step 1: Get sample, Step 2: Copy to shared location, Step 3: Clear old results, Step 4: Trigger reanalysis
+                var script = `
+                    # Find sample path from CAPE analysis
+                    CAPE_DIR="/opt/CAPEv2/storage/analyses/${taskId}"
+                    if [ ! -d "$CAPE_DIR" ]; then
+                        echo "ERROR: CAPE analysis directory not found"
+                        exit 1
+                    fi
+
+                    # Get sample SHA256 from target.file or binary symlink
+                    SAMPLE_SHA256=$(cat "$CAPE_DIR/reports/report.json" 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('target',{}).get('file',{}).get('sha256',''))" 2>/dev/null)
+
+                    # Fallback: Check binary symlink if target.file.sha256 is empty
+                    if [ -z "$SAMPLE_SHA256" ]; then
+                        if [ -L "$CAPE_DIR/binary" ]; then
+                            SAMPLE_SHA256=$(readlink "$CAPE_DIR/binary" | xargs basename)
+                        fi
+                    fi
+
+                    if [ -z "$SAMPLE_SHA256" ]; then
+                        echo "ERROR: Could not find sample SHA256 from report.json or binary symlink"
+                        exit 1
+                    fi
+
+                    LOCAL_SAMPLE="/opt/CAPEv2/storage/binaries/$SAMPLE_SHA256"
+                    if [ ! -f "$LOCAL_SAMPLE" ]; then
+                        echo "ERROR: Sample not found at $LOCAL_SAMPLE"
+                        exit 1
+                    fi
+
+                    # Copy sample to shared location for ki01 access
+                    SHARED_SAMPLES="/mnt/cape-data/ghidra/samples"
+                    mkdir -p "$SHARED_SAMPLES"
+                    cp -f "$LOCAL_SAMPLE" "$SHARED_SAMPLES/$SAMPLE_SHA256"
+
+                    # ki01 uses this path via SMB mount
+                    KI01_SAMPLE_PATH="/mnt/cape-data/ghidra/samples/$SAMPLE_SHA256"
+
+                    # Clear old static-reports
+                    rm -rf /mnt/cape-data/ghidra/static-reports/${taskId} 2>/dev/null
+
+                    # Trigger reanalysis via ki01 orchestrator API
+                    RESPONSE=$(curl -s -X POST "http://10.10.0.219:5001/analyze" \\
+                        -H "Content-Type: application/json" \\
+                        -d "{\\"sample_path\\": \\"$KI01_SAMPLE_PATH\\", \\"task_id\\": \\"${taskId}\\", \\"use_llm\\": true}" 2>&1)
+
+                    echo "Sample: $SAMPLE_SHA256"
+                    echo "Shared path: $KI01_SAMPLE_PATH"
+                    echo "Response: $RESPONSE"
+                `;
+
+                cockpit.spawn(['bash', '-c', script])
+                    .then(function(result) {
+                        if (result.indexOf('ERROR:') !== -1) {
+                            statusDiv.innerHTML = '<span style="color:#e74c3c;">❌ ' + result + '</span>';
+                            btn.disabled = false;
+                        } else {
+                            statusDiv.innerHTML = '<span style="color:#27ae60;">✅ Reprocessing gestartet!</span><br><pre style="font-size:11px; margin-top:10px; background:#1a252f; padding:10px; border-radius:5px;">' + result + '</pre>';
+                            setTimeout(function() {
+                                updateStaticAnalysis();
+                                closeErrorModal();
+                            }, 3000);
+                        }
+                    })
+                    .catch(function(err) {
+                        statusDiv.innerHTML = '<span style="color:#e74c3c;">❌ Fehler: ' + err + '</span>';
+                        btn.disabled = false;
+                    });
+            }
+
+            function repairAllFailed() {
+                if (!confirm('Alle fehlerhaften und Timeout-Analysen neu starten?\n\nDies kann einige Zeit dauern.')) {
+                    return;
+                }
+
+                var logOutput = document.getElementById('log-output');
+                currentLog = 'action';
+                document.querySelectorAll('.log-tab').forEach(function(t) { t.classList.remove('active'); });
+
+                logOutput.innerHTML = '<span style="color:#f39c12;">⏳ Sammle fehlerhafte Tasks...</span>\n';
+
+                // Get list of failed/timeout tasks
+                var getFailedScript = 'cd /mnt/cape-data/ghidra/static-reports 2>/dev/null && ' +
+                    'for d in */; do taskid=${d%/}; ' +
+                    'if [ -f "$d/task_error.log" ] && [ -s "$d/task_error.log" ]; then echo "$taskid"; ' +
+                    'elif [ -f "$d/.done" ] && [ ! -s "$d/report.md" ]; then echo "$taskid"; fi; ' +
+                    'done | sort -rn | head -10';
+
+                cockpit.spawn(['bash', '-c', getFailedScript])
+                    .then(function(result) {
+                        var tasks = result.trim().split('\n').filter(function(t) { return t.length > 0; });
+                        if (tasks.length === 0) {
+                            logOutput.innerHTML += '<span style="color:#27ae60;">✅ Keine fehlerhaften Tasks gefunden!</span>\n';
+                            return;
+                        }
+
+                        logOutput.innerHTML += '<span style="color:#3498db;">📋 ' + tasks.length + ' fehlerhafte Tasks gefunden: ' + tasks.join(', ') + '</span>\n';
+                        logOutput.innerHTML += '<span style="color:#f39c12;">⏳ Starte Reparatur (max. 10 Tasks)...</span>\n\n';
+
+                        // Process tasks sequentially
+                        var processNext = function(index) {
+                            if (index >= tasks.length) {
+                                logOutput.innerHTML += '\n<span style="color:#27ae60;">✅ Reparatur abgeschlossen!</span>\n';
+                                setTimeout(updateStaticAnalysis, 2000);
+                                return;
+                            }
+
+                            var taskId = tasks[index];
+                            logOutput.innerHTML += '<span style="color:#3498db;">🔧 [' + (index+1) + '/' + tasks.length + '] Task ' + taskId + '...</span>\n';
+
+                            var repairScript = 'CAPE_DIR="/opt/CAPEv2/storage/analyses/' + taskId + '"; ' +
+                                'SAMPLE_SHA256=$(cat "$CAPE_DIR/reports/report.json" 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get(\'target\',{}).get(\'file\',{}).get(\'sha256\',\'\'))" 2>/dev/null); ' +
+                                'if [ -z "$SAMPLE_SHA256" ] && [ -L "$CAPE_DIR/binary" ]; then SAMPLE_SHA256=$(readlink "$CAPE_DIR/binary" | xargs basename); fi; ' +
+                                'if [ -z "$SAMPLE_SHA256" ]; then echo "SKIP:no_sample"; exit 0; fi; ' +
+                                'LOCAL_SAMPLE="/opt/CAPEv2/storage/binaries/$SAMPLE_SHA256"; ' +
+                                'if [ ! -f "$LOCAL_SAMPLE" ]; then echo "SKIP:file_missing"; exit 0; fi; ' +
+                                'mkdir -p /mnt/cape-data/ghidra/samples; cp -f "$LOCAL_SAMPLE" "/mnt/cape-data/ghidra/samples/$SAMPLE_SHA256"; ' +
+                                'rm -rf /mnt/cape-data/ghidra/static-reports/' + taskId + ' 2>/dev/null; ' +
+                                'curl -s -X POST "http://10.10.0.219:5001/analyze" -H "Content-Type: application/json" ' +
+                                '-d "{\\"sample_path\\": \\"/mnt/cape-data/ghidra/samples/\'$SAMPLE_SHA256\'\\", \\"task_id\\": \\"' + taskId + '\\", \\"use_llm\\": true}" 2>&1';
+
+                            cockpit.spawn(['bash', '-c', repairScript])
+                                .then(function(res) {
+                                    if (res.indexOf('SKIP') !== -1) {
+                                        logOutput.innerHTML += '   <span style="color:#e67e22;">⚠️ Übersprungen: ' + res + '</span>\n';
+                                    } else {
+                                        logOutput.innerHTML += '   <span style="color:#27ae60;">✅ Gestartet</span>\n';
+                                    }
+                                    logOutput.scrollTop = logOutput.scrollHeight;
+                                    setTimeout(function() { processNext(index + 1); }, 1000);
+                                })
+                                .catch(function(err) {
+                                    logOutput.innerHTML += '   <span style="color:#e74c3c;">❌ Fehler: ' + err + '</span>\n';
+                                    logOutput.scrollTop = logOutput.scrollHeight;
+                                    setTimeout(function() { processNext(index + 1); }, 1000);
+                                });
+                        };
+
+                        processNext(0);
+                    })
+                    .catch(function(err) {
+                        logOutput.innerHTML += '<span style="color:#e74c3c;">❌ Fehler: ' + err + '</span>\n';
+                    });
+            }
+
+            function switchLog(logName) {
+                currentLog = logName;
+                var tabs = document.querySelectorAll('.log-tab');
+                tabs.forEach(function(tab) {
+                    tab.classList.remove('active');
+                });
+                event.target.classList.add('active');
+                
+                loadCurrentLog();
+            }
+
+            function loadCurrentLog() {
+                if (currentLog === 'action') {
+                    document.getElementById('log-output').textContent = 'Führe eine Aktion aus um Logs zu sehen...';
+                    return;
+                }
+
+                var lines = document.getElementById('logLines').value;
+                document.getElementById('log-output').textContent = 'Loading...';
+
+                if (currentLog === 'mailer') {
+                    // Use journalctl for mailer
+                    cockpit.spawn(['journalctl', '-u', 'cape-mailer.service', '-n', lines, '--no-pager'])
+                        .then(function(data) {
+                            document.getElementById('log-output').textContent = data;
+                            var elem = document.getElementById('log-output');
+                            elem.scrollTop = elem.scrollHeight;
+                        })
+                        .catch(function(err) {
+                            document.getElementById('log-output').textContent = 'Error: ' + err;
+                        });
+                } else if (currentLog === 'ki01-orch') {
+                    // ki01 Orchestrator logs via API
+                    cockpit.spawn(['curl', '-s', '--connect-timeout', '5', 'http://10.10.0.219:5001/logs/orchestrator?lines=' + lines])
+                        .then(function(result) {
+                            try {
+                                var data = JSON.parse(result);
+                                document.getElementById('log-output').textContent = data.logs || 'Keine Logs';
+                                var elem = document.getElementById('log-output');
+                                elem.scrollTop = elem.scrollHeight;
+                            } catch (e) {
+                                document.getElementById('log-output').textContent = result || 'Keine Logs';
+                            }
+                        })
+                        .catch(function(err) {
+                            document.getElementById('log-output').textContent = 'Error: ki01 nicht erreichbar';
+                        });
+                } else if (currentLog === 'ki01-ollama') {
+                    // ki01 Ollama logs via API
+                    cockpit.spawn(['curl', '-s', '--connect-timeout', '5', 'http://10.10.0.219:5001/logs/ollama?lines=' + lines])
+                        .then(function(result) {
+                            try {
+                                var data = JSON.parse(result);
+                                document.getElementById('log-output').textContent = data.logs || 'Keine Logs';
+                                var elem = document.getElementById('log-output');
+                                elem.scrollTop = elem.scrollHeight;
+                            } catch (e) {
+                                document.getElementById('log-output').textContent = result || 'Keine Logs';
+                            }
+                        })
+                        .catch(function(err) {
+                            document.getElementById('log-output').textContent = 'Error: ki01 nicht erreichbar';
+                        });
+                } else if (currentLog === 'web') {
+                    // Web log might be empty, show error-log if main is empty
+                    cockpit.spawn(['tail', '-n', lines, '/var/log/cape/cape-web.log'])
+                        .then(function(data) {
+                            if (data.trim().length === 0) {
+                                // Try error log
+                                return cockpit.spawn(['tail', '-n', lines, '/var/log/cape/cape-web-error.log']);
+                            }
+                            return data;
+                        })
+                        .then(function(data) {
+                            document.getElementById('log-output').textContent = data || 'Log is empty';
+                            var elem = document.getElementById('log-output');
+                            elem.scrollTop = elem.scrollHeight;
+                        })
+                        .catch(function(err) {
+                            document.getElementById('log-output').textContent = 'Error: ' + err;
+                        });
+                } else {
+                    var logPath = logPaths[currentLog];
+                    cockpit.spawn(['tail', '-n', lines, logPath])
+                        .then(function(data) {
+                            document.getElementById('log-output').textContent = data;
+                            var elem = document.getElementById('log-output');
+                            elem.scrollTop = elem.scrollHeight;
+                        })
+                        .catch(function(err) {
+                            document.getElementById('log-output').textContent = 'Error: ' + err;
+                        });
+                }
+            }
+
+            function downloadCurrentLog() {
+                if (currentLog === 'action') {
+                    showAlert('Keine Logs zum Download verfügbar', 'warning');
+                    return;
+                }
+
+                var filename = currentLog + '.log';
+                var cmd;
+
+                if (currentLog === 'mailer') {
+                    cmd = ['journalctl', '-u', 'cape-mailer.service', '--no-pager'];
+                } else if (currentLog === 'ki01-orch' || currentLog === 'ki01-ollama') {
+                    var endpoint = currentLog === 'ki01-orch' ? 'orchestrator' : 'ollama';
+                    cockpit.spawn(['curl', '-s', '--connect-timeout', '10', 'http://10.10.0.219:5001/logs/' + endpoint + '?lines=1000'])
+                        .then(function(result) {
+                            try {
+                                var data = JSON.parse(result);
+                                var content = data.logs || result;
+                                downloadBlob(content, filename);
+                            } catch (e) {
+                                downloadBlob(result, filename);
+                            }
+                        })
+                        .catch(function(err) {
+                            showAlert('Download failed: ki01 nicht erreichbar', 'danger');
+                        });
+                    return;
+                } else {
+                    var logPath = logPaths[currentLog];
+                    cmd = ['cat', logPath];
+                }
+
+                cockpit.spawn(cmd)
+                    .then(function(data) {
+                        downloadBlob(data, filename);
+                    })
+                    .catch(function(err) {
+                        showAlert('Download failed: ' + err, 'danger');
+                    });
+            }
+
+            function downloadBlob(data, filename) {
+                var blob = new Blob([data], { type: 'text/plain' });
+                var url = window.URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                showAlert('Log downloaded: ' + filename, 'success');
+            }
+
+            function setupLogAutoRefresh() {
+                var checkbox = document.getElementById('autoRefreshLog');
+                
+                checkbox.addEventListener('change', function() {
+                    if (logRefreshInterval) {
+                        clearInterval(logRefreshInterval);
+                        logRefreshInterval = null;
+                    }
+                    
+                    if (this.checked) {
+                        logRefreshInterval = setInterval(function() {
+                            if (currentLog !== 'action') {
+                                loadCurrentLog();
+                            }
+                        }, 10000);
+                    }
+                });
+                
+                // Start auto-refresh if checked
+                if (checkbox.checked) {
+                    logRefreshInterval = setInterval(function() {
+                        if (currentLog !== 'action') {
+                            loadCurrentLog();
+                        }
+                    }, 10000);
+                }
+            }
+
+            function executeAction(action) {
+                currentLog = 'action';
+                var tabs = document.querySelectorAll('.log-tab');
+                tabs.forEach(function(tab) { tab.classList.remove('active'); });
+                
+                var logOutput = document.getElementById('log-output');
+                logOutput.textContent = 'Führe ' + action + ' aus...\n';
+
+                var buttons = document.querySelectorAll('.btn');
+                buttons.forEach(function(b) { b.disabled = true; });
+
+                var proc = cockpit.spawn([CAPE_MANAGER, action], { superuser: 'require' });
+
+                proc.stream(function(data) {
+                    logOutput.textContent += data;
+                    logOutput.scrollTop = logOutput.scrollHeight;
+                });
+
+                proc.then(function() {
+                    showAlert(action + ' erfolgreich!', 'success');
+                    setTimeout(refreshStatus, 2000);
+                })
+                .catch(function(error) {
+                    logOutput.textContent += '\nFEHLER: ' + error.message;
+                    showAlert('Fehler: ' + error.message, 'danger');
+                })
+                .finally(function() {
+                    buttons.forEach(function(b) { b.disabled = false; });
+                });
+            }
+
+            function testMailer() {
+                currentLog = 'action';
+                var logOutput = document.getElementById('log-output');
+                logOutput.textContent = 'Starte cape-mailer...\n';
+
+                cockpit.spawn(['systemctl', 'start', 'cape-mailer.service'], { superuser: 'require' })
+                    .then(function() {
+                        showAlert('Mailer gestartet', 'success');
+                        setTimeout(function() {
+                            switchLog('mailer');
+                        }, 2000);
+                    })
+                    .catch(function(error) {
+                        showAlert('Fehler: ' + error.message, 'danger');
+                    });
+            }
+
+            // File Upload
+            var dropZone = document.getElementById('uploadZone');
+            var fileInput = document.getElementById('fileInput');
+
+            dropZone.addEventListener('click', function() {
+                fileInput.click();
+            });
+
+            dropZone.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                dropZone.style.borderColor = '#2980b9';
+            });
+
+            dropZone.addEventListener('drop', function(e) {
+                e.preventDefault();
+                dropZone.style.borderColor = '#ccc';
+                handleFiles(e.dataTransfer.files);
+            });
+
+            fileInput.addEventListener('change', function(e) {
+                handleFiles(e.target.files);
+            });
+
+            function handleFiles(files) {
+                if (files.length === 0) return;
+                
+                var autoUnpack = document.getElementById('autoUnpack').checked;
+                var script = autoUnpack ? 'submit_with_unpack.py' : 'submit.py';
+                
+                document.getElementById('uploadStatus').style.display = 'block';
+                document.getElementById('uploadMessage').textContent = 'Uploading...';
+                
+                var completed = 0;
+                Array.from(files).forEach(function(file) {
+                    var reader = new FileReader();
+                    reader.onload = function(e) {
+                        var content = btoa(String.fromCharCode.apply(null, new Uint8Array(e.target.result)));
+                        var tmpFile = '/tmp/upload_' + Date.now() + '_' + file.name;
+                        
+                        cockpit.spawn(['bash', '-c', 'echo "' + content + '" | base64 -d > ' + tmpFile])
+                            .then(function() {
+                                return cockpit.spawn(['sudo', '-u', 'cape', 'bash', '-c', 
+                                    'cd /opt/CAPEv2 && source .venv/bin/activate && python3 utils/' + script + ' ' + tmpFile]);
+                            })
+                            .then(function() {
+                                completed++;
+                                var percent = (completed / files.length) * 100;
+                                document.getElementById('uploadProgress').style.width = percent + '%';
+                                document.getElementById('uploadMessage').textContent = 'Submitted ' + completed + '/' + files.length;
+                                
+                                if (completed === files.length) {
+                                    setTimeout(function() {
+                                        document.getElementById('uploadStatus').style.display = 'none';
+                                        document.getElementById('uploadProgress').style.width = '0%';
+                                        fileInput.value = '';
+                                        showAlert('All files submitted!', 'success');
+                                        updateMetrics();
+                                    }, 2000);
+                                }
+                            })
+                            .catch(function(err) {
+                                document.getElementById('uploadMessage').textContent = 'Error: ' + err;
+                            });
+                    };
+                    reader.readAsArrayBuffer(file);
+                });
+            }
+
+            // Export to global
+            window.refreshStatus = refreshStatus;
+            window.executeAction = executeAction;
+            window.testMailer = testMailer;
+            window.switchLog = switchLog;
+            window.loadCurrentLog = loadCurrentLog;
+            window.downloadCurrentLog = downloadCurrentLog;
+            window.refreshStaticAnalysis = refreshStaticAnalysis;
+            window.showErrorDetails = showErrorDetails;
+            window.closeErrorModal = closeErrorModal;
+            window.reprocessTask = reprocessTask;
+            window.repairAllFailed = repairAllFailed;
+
+            // Initial load
+            refreshStatus();
+            setupLogAutoRefresh();
+            
+            // Auto-refresh status every 10 seconds
+            setInterval(refreshStatus, 10000);
+        })();
+    </script>
+</body>
+</html>
