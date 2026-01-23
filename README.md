@@ -1,6 +1,6 @@
 # IcePorge Cockpit Modules
 
-**Web-based Management Interface for CAPE Sandbox and MWDB Stack**
+**Web-based Management Interface for CAPE Sandbox, MWDB Stack and Security Scanning**
 
 Part of the [IcePorge](https://github.com/icepaule/IcePorge) Malware Analysis Stack.
 
@@ -9,6 +9,11 @@ Part of the [IcePorge](https://github.com/icepaule/IcePorge) Malware Analysis St
 ---
 
 ## Screenshots
+
+### Security Scanner (TruffleHog)
+![Security Scanner](docs/screenshots/security-scanner.png)
+
+*Scan GitHub repositories, local Git repos, and filesystems for secrets with TruffleHog integration.*
 
 ### MWDB Stack Manager
 ![MWDB Stack Manager](docs/screenshots/mwdb-manager.png)
@@ -23,6 +28,17 @@ Part of the [IcePorge](https://github.com/icepaule/IcePorge) Malware Analysis St
 ---
 
 ## Modules
+
+### Security Scanner (`security-scanner/`)
+- **TruffleHog** integration for secret detection
+- Scan GitHub organizations and repositories
+- Scan local Git repositories
+- Scan filesystem directories
+- Configurable scan targets via YAML
+- Cron scheduler with graphical configuration
+- Pushover notifications for findings
+- Scan history and log viewer
+- Manual scan of arbitrary repositories
 
 ### CAPE Manager (`cape-manager/`)
 - CAPE service status monitoring
@@ -42,12 +58,27 @@ Part of the [IcePorge](https://github.com/icepaule/IcePorge) Malware Analysis St
 ## Installation
 
 ```bash
-# Copy modules to Cockpit directory
-sudo cp -r cape-manager /usr/share/cockpit/
-sudo cp -r mwdb-manager /usr/share/cockpit/
+# Copy/link modules to Cockpit directory
+sudo ln -sf /opt/iceporge-cockpit/cape-manager /usr/share/cockpit/
+sudo ln -sf /opt/iceporge-cockpit/mwdb-manager /usr/share/cockpit/
+sudo ln -sf /opt/iceporge-cockpit/security-scanner /usr/share/cockpit/
 
 # Restart Cockpit
 sudo systemctl restart cockpit.socket
+```
+
+### Security Scanner Prerequisites
+
+```bash
+# Install TruffleHog
+curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin
+
+# Verify installation
+trufflehog --version
+
+# Set log permissions
+sudo touch /var/log/iceporge-security.log
+sudo chmod 666 /var/log/iceporge-security.log
 ```
 
 ## Access
@@ -55,13 +86,18 @@ sudo systemctl restart cockpit.socket
 1. Open Cockpit: `https://your-server:9090/`
 2. Login with administrator credentials
 3. Enable "Administrative access" (required for Docker commands)
-4. Select "CAPE Sandbox" or "MWDB Stack" from the menu
+4. Select module from the menu:
+   - **Security Scanner** - TruffleHog secret scanning
+   - **CAPE Sandbox** - CAPE service management
+   - **MWDB Stack** - MWDB and Karton management
 
 ## Requirements
 
 - Cockpit >= 215
 - Administrative access enabled
 - Docker installed (for container management)
+- TruffleHog installed (for security scanner)
+- GitHub CLI `gh` (optional, for GitHub scanning)
 
 ## License
 
