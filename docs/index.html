@@ -1,0 +1,201 @@
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IcePorge Cockpit Modules – Doku</title>
+<style>
+:root { --primary:#1a56db; --primary-light:#e8effc; --bg:#f8fafc; --card:#ffffff; --text:#1e293b; --text-muted:#64748b; --border:#e2e8f0; --accent:#059669; --accent-light:#ecfdf5; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); line-height:1.6; }
+.container { max-width:1100px; margin:0 auto; padding:0 24px; }
+header { background:linear-gradient(135deg,#1e3a5f 0%,#1a56db 100%); color:white; padding:60px 0 50px; }
+header h1 { font-size:2.5rem; margin-bottom:12px; display:flex; align-items:center; gap:16px; }
+header .icon { width:48px; height:48px; flex-shrink:0; }
+header p { font-size:1.15rem; opacity:0.9; max-width:700px; }
+.badge { display:inline-block; background:rgba(255,255,255,0.2); padding:4px 12px; border-radius:20px; font-size:0.85rem; margin-top:16px; }
+nav { background:var(--card); border-bottom:1px solid var(--border); position:sticky; top:0; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+nav .container { display:flex; overflow-x:auto; }
+nav a { padding:14px 20px; text-decoration:none; color:var(--text-muted); font-size:0.9rem; font-weight:500; white-space:nowrap; border-bottom:2px solid transparent; }
+nav a:hover { color:var(--primary); border-bottom-color:var(--primary); }
+section { padding:50px 0; }
+section:nth-child(even) { background:var(--card); }
+h2 { font-size:1.8rem; margin-bottom:24px; }
+h3 { font-size:1.2rem; margin:20px 0 12px; }
+.card-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:20px; margin-top:20px; }
+.card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:24px; box-shadow:0 1px 3px rgba(0,0,0,0.04); }
+section:nth-child(even) .card { background:var(--bg); }
+.card h3 { margin-top:0; color:var(--primary); }
+.card p { color:var(--text-muted); font-size:0.95rem; }
+table { width:100%; border-collapse:collapse; margin:16px 0; font-size:0.9rem; }
+th, td { padding:10px 14px; text-align:left; border-bottom:1px solid var(--border); }
+th { background:var(--primary-light); color:var(--primary); font-weight:600; }
+.mermaid-wrap { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:24px; margin:24px 0; overflow-x:auto; }
+section:nth-child(even) .mermaid-wrap { background:var(--bg); }
+pre:not(.mermaid) { background:#1e293b; color:#e2e8f0; padding:20px; border-radius:10px; overflow-x:auto; font-size:0.85rem; }
+code { background:var(--primary-light); padding:2px 6px; border-radius:4px; font-size:0.85rem; }
+pre code { background:none; padding:0; }
+.tech-grid { display:flex; flex-wrap:wrap; gap:12px; margin:20px 0; }
+.tech-item { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px 18px; font-size:0.9rem; font-weight:500; }
+section:nth-child(even) .tech-item { background:var(--bg); }
+footer { background:#1e293b; color:#94a3b8; padding:40px 0; text-align:center; font-size:0.85rem; }
+footer a { color:#60a5fa; text-decoration:none; }
+.shots { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:20px; margin-top:20px; }
+.shots figure { margin:0; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px; }
+section:nth-child(even) .shots figure { background:var(--bg); }
+.shots img { width:100%; border-radius:8px; display:block; border:1px solid var(--border); }
+.shots figcaption { font-size:0.85rem; color:var(--text-muted); margin-top:8px; text-align:center; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <h1>
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
+      IcePorge Cockpit Modules
+    </h1>
+    <p>Drei eigene Cockpit-Erweiterungen zur webbasierten Steuerung von CAPE Sandbox, MWDB-Stack und Secret-Scanning – direkt im vorhandenen Server-Admin-Interface.</p>
+    <span class="badge">Teil des IcePorge Malware-Analyse-Stacks</span>
+  </div>
+</header>
+
+<nav>
+  <div class="container">
+    <a href="#ueberblick">Überblick</a>
+    <a href="#architektur">Architektur</a>
+    <a href="#screenshots">Screenshots</a>
+    <a href="#tech-stack">Tech-Stack</a>
+    <a href="#setup">Setup</a>
+  </div>
+</nav>
+
+<section id="ueberblick">
+  <div class="container">
+    <h2>Überblick</h2>
+    <p>IcePorge Cockpit Modules erweitert das <a href="https://cockpit-project.org/" target="_blank" rel="noopener">Cockpit</a>-Webadmin-Interface um drei Plugins, die speziell für den IcePorge-Malware-Analyse-Stack gebaut wurden. Statt separate Dashboards oder SSH-Sessions zu pflegen, laufen Service-Status, VM-Verwaltung, Log-Einsicht, Container-Kontrolle und Secret-Scanning direkt als Menüpunkte im bestehenden Cockpit von Cockpit (Port 9090). Jedes Modul ist eine eigenständige HTML/JS-Anwendung, die über die Cockpit-Bridge lokale Kommandos ausführt und Ergebnisse in Echtzeit im Browser anzeigt.</p>
+    <div class="card-grid">
+      <div class="card">
+        <h3>Security Scanner</h3>
+        <p>TruffleHog-Integration zum Scannen von GitHub-Repos, lokalen Git-Repos und Filesystem-Pfaden auf Secrets, inkl. Cron-Scheduler, Scan-Historie und Pushover-Benachrichtigungen.</p>
+      </div>
+      <div class="card">
+        <h3>CAPE Manager</h3>
+        <p>Status-Übersicht für CAPE-Sandbox-Dienste, VM-Verwaltung via libvirt, Log-Viewer für mehrere Quellen sowie Health-Checks externer Dienste (MISP, Ghidra, Ollama).</p>
+      </div>
+      <div class="card">
+        <h3>MWDB Manager</h3>
+        <p>Überwachung von MWDB-Core-Services, Karton-Pipeline und Feeder-Status, Übersicht der Feed-Quellen sowie Container-Steuerung (Start/Stop/Restart/Rebuild).</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="architektur">
+  <div class="container">
+    <h2>Architektur</h2>
+    <p>Alle drei Module werden als Cockpit-Plugins (<code>manifest.json</code> + <code>index.html</code>) im Cockpit-Verzeichnis verlinkt und erscheinen als eigene Menüpunkte. Sie führen keine eigenen Server-Prozesse aus, sondern nutzen die im Browser geladene <code>cockpit.js</code>-Bibliothek, um über die Cockpit-Bridge (WebSocket-Session mit optionalem Superuser) Shell-Kommandos auf dem Host auszuführen – etwa <code>systemctl</code>, <code>virsh</code>, <code>docker</code>, <code>journalctl</code> oder <code>curl</code> gegen interne Dienst-Endpunkte.</p>
+    <div class="mermaid-wrap">
+<pre class="mermaid">
+graph TD
+    Browser["Admin-Browser"] --> Cockpit["Cockpit Web UI<br/>(Port 9090)"]
+
+    Cockpit --> CM["CAPE Manager Modul"]
+    Cockpit --> MM["MWDB Manager Modul"]
+    Cockpit --> SS["Security Scanner Modul"]
+
+    CM -- "cockpit.spawn()" --> Bridge["Cockpit-Bridge<br/>(Host-Shell, optional superuser)"]
+    MM -- "cockpit.spawn()" --> Bridge
+    SS -- "cockpit.spawn()" --> Bridge
+
+    Bridge --> Systemd["systemd Services<br/>(cape-mailer, cockpit.socket, ...)"]
+    Bridge --> Libvirt["libvirt / CAPE-VMs"]
+    Bridge --> Docker["Docker Container<br/>(MWDB-Core, Karton, Feeder)"]
+    Bridge --> Logs["Journal- & Dateilogs"]
+    Bridge --> Trufflehog["TruffleHog CLI"]
+
+    Bridge -- "curl (intern)" --> Orchestrator["CAPE / KI-Orchestrator<br/>(Analyse-API, Ollama)"]
+    Trufflehog --> GitHub["GitHub Repos"]
+    Trufflehog --> LocalFs["Lokale Repos / Filesystem"]
+    SS -- "Findings" --> Pushover["Pushover-Benachrichtigung"]
+</pre>
+    </div>
+    <p>Die Trennung in drei Module hält jede Cockpit-Erweiterung schlank und fokussiert: Der CAPE Manager kümmert sich um Sandbox-Betrieb und angebundene Analyse-Dienste, der MWDB Manager um die Malware-Datenbank samt Verarbeitungspipeline, und der Security Scanner läuft unabhängig davon als eigenständiges Secret-Scanning-Werkzeug für Repositories.</p>
+  </div>
+</section>
+
+<section id="screenshots">
+  <div class="container">
+    <h2>Screenshots</h2>
+    <p>Die Module bringen bereits eigene Screenshots aus dem Repository mit:</p>
+    <div class="shots">
+      <figure>
+        <img src="screenshots/security-scanner.png" alt="Security Scanner Modul">
+        <figcaption>Security Scanner – TruffleHog-Secret-Scanning</figcaption>
+      </figure>
+      <figure>
+        <img src="screenshots/cape-manager.png" alt="CAPE Manager Modul">
+        <figcaption>CAPE Manager – Sandbox- und VM-Verwaltung</figcaption>
+      </figure>
+      <figure>
+        <img src="screenshots/mwdb-manager.png" alt="MWDB Manager Modul">
+        <figcaption>MWDB Manager – Stack- und Pipeline-Überwachung</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section id="tech-stack">
+  <div class="container">
+    <h2>Tech-Stack</h2>
+    <div class="tech-grid">
+      <span class="tech-item">Cockpit (≥ 215)</span>
+      <span class="tech-item">Vanilla HTML / CSS / JavaScript</span>
+      <span class="tech-item">cockpit.js Bridge API</span>
+      <span class="tech-item">systemd</span>
+      <span class="tech-item">libvirt / virsh</span>
+      <span class="tech-item">Docker</span>
+      <span class="tech-item">TruffleHog</span>
+      <span class="tech-item">GitHub CLI (optional)</span>
+      <span class="tech-item">Pushover-Benachrichtigungen</span>
+    </div>
+  </div>
+</section>
+
+<section id="setup">
+  <div class="container">
+    <h2>Quickstart / Setup</h2>
+    <p>Die Module werden als Symlinks in das Cockpit-Plugin-Verzeichnis eingebunden:</p>
+    <pre><code>git clone https://github.com/icepaule/IcePorge-Cockpit.git
+cd IcePorge-Cockpit
+
+# Module in Cockpit-Verzeichnis verlinken
+sudo ln -sf "$(pwd)/cape-manager" /usr/share/cockpit/
+sudo ln -sf "$(pwd)/mwdb-manager" /usr/share/cockpit/
+sudo ln -sf "$(pwd)/security-scanner" /usr/share/cockpit/
+
+# Cockpit neu starten
+sudo systemctl restart cockpit.socket</code></pre>
+    <h3>Voraussetzung für den Security Scanner</h3>
+    <pre><code>curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin
+trufflehog --version
+
+sudo touch /var/log/iceporge-security.log
+sudo chmod 666 /var/log/iceporge-security.log</code></pre>
+    <p>Anschließend Cockpit unter <code>https://&lt;server&gt;:9090/</code> öffnen, mit einem Administrator-Account anmelden, „Administrative access" aktivieren (für Docker-Kommandos nötig) und das gewünschte Modul im Menü auswählen.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>
+      <a href="https://github.com/icepaule/IcePorge-Cockpit" target="_blank" rel="noopener">Repository auf GitHub</a>
+      &nbsp;·&nbsp;
+      <a href="https://icepaule.github.io/" target="_blank" rel="noopener">Zur Portfolio-Startseite</a>
+    </p>
+  </div>
+</footer>
+
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>
